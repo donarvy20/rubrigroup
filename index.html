@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluador con Rúbricas por Grupos</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" xintegrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+        }
+        .card {
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        .student-list-item, .group-member-item {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .student-list-item:hover {
+            background-color: #e9ecef;
+        }
+        .student-list-item.selected {
+            background-color: #0d6efd;
+            color: white;
+            font-weight: bold;
+        }
+        .rubric-table th, .rubric-table td {
+            vertical-align: middle;
+        }
+        .rubric-table .descriptor {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        .level-header {
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        .evaluation-results {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        .btn-group-sm > .btn {
+             font-size: 0.75rem;
+        }
+        .nav-tabs .nav-link {
+            color: #495057;
+        }
+        .nav-tabs .nav-link.active {
+            color: #0d6efd;
+            border-color: #dee2e6 #dee2e6 #fff;
+            font-weight: bold;
+        }
+        #results-area .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3">
+                <i class="bi bi-card-checklist"></i> Evaluador con Rúbricas por Grupos
+            </h1>
+            <button id="clear-all-data" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i> Limpiar Todos los Datos</button>
+        </div>
+
+        <!-- Pestañas de Navegación -->
+        <ul class="nav nav-tabs" id="mainTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="setup-tab" data-bs-toggle="tab" data-bs-target="#setup-pane" type="button" role="tab" aria-controls="setup-pane" aria-selected="true"><i class="bi bi-gear-fill"></i> 1. Configuración</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="rubric-tab" data-bs-toggle="tab" data-bs-target="#rubric-pane" type="button" role="tab" aria-controls="rubric-pane" aria-selected="false"><i class="bi bi-table"></i> 2. Rúbrica</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="groups-tab" data-bs-toggle="tab" data-bs-target="#groups-pane" type="button" role="tab" aria-controls="groups-pane" aria-selected="false"><i class="bi bi-people-fill"></i> 3. Grupos</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="evaluate-tab" data-bs-toggle="tab" data-bs-target="#evaluate-pane" type="button" role="tab" aria-controls="evaluate-pane" aria-selected="false"><i class="bi bi-pencil-square"></i> 4. Evaluar</button>
+            </li>
+        </ul>
+
+        <!-- Contenido de las Pestañas -->
+        <div class="tab-content" id="mainTabContent">
+            
+            <!-- Pestaña 1: Configuración -->
+            <div class="tab-pane fade show active" id="setup-pane" role="tabpanel" aria-labelledby="setup-tab" tabindex="0">
+                <div class="card mt-3">
+                    <div class="card-header">
+                        Información General
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="course-name" class="form-label">Curso</label>
+                                <input type="text" class="form-control" id="course-name" placeholder="Ej: Biología Celular">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="teacher-name" class="form-label">Docente</label>
+                                <input type="text" class="form-control" id="teacher-name" placeholder="Ej: Dr. Ana Torres">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="rubric-title" class="form-label">Título de la Evaluación</label>
+                                <input type="text" class="form-control" id="rubric-title" placeholder="Ej: Reporte de Laboratorio N°5">
+                            </div>
+                             <div class="col-md-3 mb-3">
+                                <label for="unit-name" class="form-label">Unidad</label>
+                                <input type="text" class="form-control" id="unit-name" placeholder="Ej: Unidad 2">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="evaluation-date" class="form-label">Fecha</label>
+                                <input type="date" class="form-control" id="evaluation-date">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        Gestión de Estudiantes
+                    </div>
+                    <div class="card-body">
+                         <div class="mb-3">
+                            <label for="student-list-paste" class="form-label">Pega la lista de estudiantes aquí (uno por línea)</label>
+                            <textarea class="form-control" id="student-list-paste" rows="5"></textarea>
+                        </div>
+                        <button class="btn btn-primary" id="process-students-btn"><i class="bi bi-arrow-right-square"></i> Procesar Lista</button>
+                        <hr>
+                        <div class="row align-items-end">
+                            <div class="col-md-6">
+                                <label for="saved-student-lists" class="form-label">Cargar lista de estudiantes guardada</label>
+                                <select class="form-select" id="saved-student-lists">
+                                    <option selected disabled>Selecciona una lista...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <button class="btn btn-success me-2" id="load-student-list-btn"><i class="bi bi-upload"></i> Cargar</button>
+                                <button class="btn btn-secondary me-2" id="save-student-list-btn"><i class="bi bi-save"></i> Guardar Lista Actual</button>
+                                <button class="btn btn-danger" id="delete-student-list-btn"><i class="bi bi-trash"></i> Borrar Lista</button>
+                            </div>
+                        </div>
+                        <h5 class="mt-4">Lista de Estudiantes Actual (<span id="student-count">0</span>)</h5>
+                        <div id="student-list-display" class="list-group" style="max-height: 300px; overflow-y: auto;">
+                            <!-- Los estudiantes aparecerán aquí -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestaña 2: Rúbrica -->
+            <div class="tab-pane fade" id="rubric-pane" role="tabpanel" aria-labelledby="rubric-tab" tabindex="0">
+                 <div class="card mt-3">
+                    <div class="card-header">
+                        Constructor de Rúbrica
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex gap-2 mb-3">
+                           <button class="btn btn-primary" id="add-criterion-btn"><i class="bi bi-plus-circle"></i> Añadir Criterio</button>
+                           <button class="btn btn-primary" id="add-level-btn"><i class="bi bi-plus-square"></i> Añadir Nivel</button>
+                           <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#importCsvModal"><i class="bi bi-file-earmark-spreadsheet"></i> Importar desde CSV</button>
+                        </div>
+
+                        <div id="rubric-builder" class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead id="rubric-head">
+                                    <tr>
+                                        <th style="width: 20%;">Criterio</th>
+                                        <!-- Los niveles se añadirán dinámicamente -->
+                                    </tr>
+                                </thead>
+                                <tbody id="rubric-body">
+                                    <!-- Las filas de criterios se añadirán dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <hr>
+                        <div class="row align-items-end">
+                            <div class="col-md-6">
+                                <label for="saved-rubrics" class="form-label">Cargar rúbrica guardada</label>
+                                <select class="form-select" id="saved-rubrics">
+                                    <option selected disabled>Selecciona una rúbrica...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <button class="btn btn-success me-2" id="load-rubric-btn"><i class="bi bi-upload"></i> Cargar</button>
+                                <button class="btn btn-secondary me-2" id="save-rubric-btn"><i class="bi bi-save"></i> Guardar Rúbrica Actual</button>
+                                <button class="btn btn-danger" id="delete-rubric-btn"><i class="bi bi-trash"></i> Borrar Rúbrica</button>
+                            </div>
+                        </div>
+                    </div>
+                 </div>
+            </div>
+            
+            <!-- Pestaña 3: Grupos -->
+            <div class="tab-pane fade" id="groups-pane" role="tabpanel" aria-labelledby="groups-tab" tabindex="0">
+                 <div class="card mt-3">
+                    <div class="card-header">
+                        Creación de Grupos
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5>1. Selecciona los estudiantes</h5>
+                                <div id="group-student-selection" class="list-group" style="max-height: 400px; overflow-y: auto;">
+                                    <!-- Lista de estudiantes para seleccionar -->
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h5>2. Nombra y crea el grupo</h5>
+                                <div class="mb-3">
+                                    <label for="group-name" class="form-label">Nombre del Grupo</label>
+                                    <input type="text" class="form-control" id="group-name" placeholder="Ej: Grupo 1, Los Investigadores...">
+                                </div>
+                                <button class="btn btn-primary" id="create-group-btn"><i class="bi bi-plus-circle-fill"></i> Crear Grupo</button>
+                                <hr>
+                                <h5>Grupos Creados</h5>
+                                <div id="groups-display-area">
+                                    <!-- Los grupos creados aparecerán aquí -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                 </div>
+            </div>
+
+            <!-- Pestaña 4: Evaluar -->
+            <div class="tab-pane fade" id="evaluate-pane" role="tabpanel" aria-labelledby="evaluate-tab" tabindex="0">
+                <div class="card mt-3">
+                    <div class="card-header">
+                        Panel de Evaluación
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label for="group-to-evaluate" class="form-label">Selecciona un grupo para evaluar</label>
+                                <select class="form-select" id="group-to-evaluate">
+                                     <option selected disabled>Elige un grupo...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8 d-flex align-items-end">
+                               <div id="evaluation-results-display" class="d-flex gap-4">
+                                   <!-- Los resultados se mostrarán aquí -->
+                               </div>
+                            </div>
+                        </div>
+                        <hr>
+                        <div id="evaluation-rubric-area" class="table-responsive">
+                            <!-- La rúbrica para evaluar se mostrará aquí -->
+                        </div>
+                        <button class="btn btn-success mt-3" id="save-evaluation-btn"><i class="bi bi-check-circle"></i> Guardar Evaluación</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                       Resultados Finales
+                    </div>
+                    <div class="card-body" id="results-area">
+                        <!-- Resumen de evaluaciones por grupo -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modal para guardar lista de estudiantes -->
+    <div class="modal fade" id="saveStudentListModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Guardar Lista de Estudiantes</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <label for="student-list-name" class="form-label">Nombre para identificar la lista</label>
+            <input type="text" class="form-control" id="student-list-name" placeholder="Ej: Biología 4to A - 2024">
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="confirm-save-student-list">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal para guardar rúbrica -->
+    <div class="modal fade" id="saveRubricModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Guardar Rúbrica</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <label for="rubric-name" class="form-label">Nombre para identificar la rúbrica</label>
+            <input type="text" class="form-control" id="rubric-name" placeholder="Ej: Rúbrica para Ensayos">
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="confirm-save-rubric">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal para importar CSV -->
+    <div class="modal fade" id="importCsvModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Importar Rúbrica desde CSV</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Pega los datos de tu rúbrica en formato CSV. El formato debe ser:</p>
+                    <code>Criterio, "Descriptor Nivel 1", Puntaje Nivel 1, "Descriptor Nivel 2", Puntaje Nivel 2, ...</code>
+                    <p class="mt-2"><small class="text-muted">Cada fila es un criterio. La primera columna es el nombre del criterio, seguida de pares de descriptor y puntaje para cada nivel.</small></p>
+                    <textarea id="csv-input" class="form-control" rows="10" placeholder='Ejemplo:
+Organización,"La estructura no es clara",1,"La estructura es básica pero funcional",3,"La estructura es lógica y efectiva",5
+Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes con errores de formato",3,"Excelente integración y citación de fuentes",5'></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="confirm-import-csv">Importar Rúbrica</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" xintegrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- jsPDF autotable plugin -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // State Management
+        let appState = {
+            students: [],
+            rubric: { criteria: [], levels: [] },
+            groups: [],
+            evaluations: {},
+            generalInfo: {}
+        };
+
+        // DOM Elements
+        const studentListPaste = document.getElementById('student-list-paste');
+        const processStudentsBtn = document.getElementById('process-students-btn');
+        const studentListDisplay = document.getElementById('student-list-display');
+        const studentCount = document.getElementById('student-count');
+        const saveStudentListBtn = document.getElementById('save-student-list-btn');
+        const confirmSaveStudentListBtn = document.getElementById('confirm-save-student-list');
+        const savedStudentListsSelect = document.getElementById('saved-student-lists');
+        const loadStudentListBtn = document.getElementById('load-student-list-btn');
+        const deleteStudentListBtn = document.getElementById('delete-student-list-btn');
+        
+        const addCriterionBtn = document.getElementById('add-criterion-btn');
+        const addLevelBtn = document.getElementById('add-level-btn');
+        const rubricHead = document.getElementById('rubric-head');
+        const rubricBody = document.getElementById('rubric-body');
+        const saveRubricBtn = document.getElementById('save-rubric-btn');
+        const confirmSaveRubricBtn = document.getElementById('confirm-save-rubric');
+        const savedRubricsSelect = document.getElementById('saved-rubrics');
+        const loadRubricBtn = document.getElementById('load-rubric-btn');
+        const deleteRubricBtn = document.getElementById('delete-rubric-btn');
+        const importCsvBtn = document.getElementById('confirm-import-csv');
+
+        const groupStudentSelection = document.getElementById('group-student-selection');
+        const createGroupBtn = document.getElementById('create-group-btn');
+        const groupNameInput = document.getElementById('group-name');
+        const groupsDisplayArea = document.getElementById('groups-display-area');
+        
+        const groupToEvaluateSelect = document.getElementById('group-to-evaluate');
+        const evaluationRubricArea = document.getElementById('evaluation-rubric-area');
+        const evaluationResultsDisplay = document.getElementById('evaluation-results-display');
+        const saveEvaluationBtn = document.getElementById('save-evaluation-btn');
+        const resultsArea = document.getElementById('results-area');
+
+        const courseNameInput = document.getElementById('course-name');
+        const teacherNameInput = document.getElementById('teacher-name');
+        const rubricTitleInput = document.getElementById('rubric-title');
+        const unitNameInput = document.getElementById('unit-name');
+        const evaluationDateInput = document.getElementById('evaluation-date');
+        const clearAllDataBtn = document.getElementById('clear-all-data');
+
+        // Modals
+        const saveStudentListModal = new bootstrap.Modal(document.getElementById('saveStudentListModal'));
+        const saveRubricModal = new bootstrap.Modal(document.getElementById('saveRubricModal'));
+        const importCsvModal = new bootstrap.Modal(document.getElementById('importCsvModal'));
+
+        // --- UTILS ---
+        const saveState = () => {
+            localStorage.setItem('rubricApp_state', JSON.stringify(appState));
+        };
+        
+        const loadState = () => {
+            const savedState = localStorage.getItem('rubricApp_state');
+            if (savedState) {
+                appState = JSON.parse(savedState);
+                // Ensure default structure if loading older state
+                if (!appState.generalInfo) appState.generalInfo = {};
+            }
+        };
+
+        const getFromStorage = (prefix) => {
+            const items = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith(prefix)) {
+                    items[key] = JSON.parse(localStorage.getItem(key));
+                }
+            }
+            return items;
+        };
+        
+        const populateSelect = (selectElement, items, keyPrefix) => {
+            selectElement.innerHTML = `<option selected disabled>Selecciona una opción...</option>`;
+            for (const key in items) {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = key.replace(keyPrefix, '');
+                selectElement.appendChild(option);
+            }
+        };
+
+        const getPerformanceLevel = (avg) => {
+            if (avg === 5) return "Destacado";
+            if (avg >= 4) return "Logrado";
+            if (avg >= 3) return "Proceso";
+            if (avg >= 2) return "Inicio";
+            return "Previo al Inicio";
+        };
+        
+        // --- DATA INITIALIZATION ---
+        const initializeApp = () => {
+            loadState();
+            evaluationDateInput.valueAsDate = new Date();
+            renderStudents();
+            renderRubricBuilder();
+            loadSavedLists();
+            loadSavedRubrics();
+            renderGroups();
+            populateEvaluationSelect();
+            renderAllResults();
+            updateGeneralInfoInputs();
+            
+            [courseNameInput, teacherNameInput, rubricTitleInput, unitNameInput, evaluationDateInput].forEach(input => {
+                input.addEventListener('change', () => {
+                    appState.generalInfo[input.id.replace('-name', '').replace('-','')] = input.value;
+                    saveState();
+                });
+            });
+        };
+
+        const updateGeneralInfoInputs = () => {
+            courseNameInput.value = appState.generalInfo.course || '';
+            teacherNameInput.value = appState.generalInfo.teacher || '';
+            rubricTitleInput.value = appState.generalInfo.rubricTitle || '';
+            unitNameInput.value = appState.generalInfo.unit || '';
+            evaluationDateInput.value = appState.generalInfo.evaluationDate || new Date().toISOString().split('T')[0];
+        };
+
+        // --- STUDENT MANAGEMENT ---
+        const renderStudents = () => {
+            const listsToUpdate = [studentListDisplay, groupStudentSelection];
+            listsToUpdate.forEach(list => list.innerHTML = '');
+            
+            appState.students.forEach(student => {
+                const studentItem = document.createElement('div');
+                studentItem.className = 'list-group-item student-list-item';
+                studentItem.textContent = student;
+                studentItem.dataset.studentName = student;
+
+                const displayCopy = studentItem.cloneNode(true);
+                studentListDisplay.appendChild(displayCopy);
+                
+                const selectionCopy = studentItem.cloneNode(true);
+                selectionCopy.addEventListener('click', () => {
+                    selectionCopy.classList.toggle('selected');
+                });
+                groupStudentSelection.appendChild(selectionCopy);
+            });
+            studentCount.textContent = appState.students.length;
+        };
+
+        processStudentsBtn.addEventListener('click', () => {
+            const names = studentListPaste.value.trim().split('\n').filter(name => name.trim() !== '');
+            appState.students = [...new Set(names)]; // Remove duplicates
+            studentListPaste.value = '';
+            saveState();
+            renderStudents();
+        });
+
+        const loadSavedLists = () => {
+            const lists = getFromStorage('studentList_');
+            populateSelect(savedStudentListsSelect, lists, 'studentList_');
+        };
+
+        saveStudentListBtn.addEventListener('click', () => {
+            if (appState.students.length > 0) {
+                document.getElementById('student-list-name').value = '';
+                saveStudentListModal.show();
+            } else {
+                alert('No hay estudiantes en la lista actual para guardar.');
+            }
+        });
+
+        confirmSaveStudentListBtn.addEventListener('click', () => {
+            const listName = document.getElementById('student-list-name').value.trim();
+            if (listName) {
+                localStorage.setItem(`studentList_${listName}`, JSON.stringify(appState.students));
+                saveStudentListModal.hide();
+                loadSavedLists();
+            } else {
+                alert('Por favor, ingresa un nombre para la lista.');
+            }
+        });
+        
+        loadStudentListBtn.addEventListener('click', () => {
+            const selectedKey = savedStudentListsSelect.value;
+            if (selectedKey !== 'Selecciona una opción...') {
+                appState.students = JSON.parse(localStorage.getItem(selectedKey));
+                saveState();
+                renderStudents();
+            }
+        });
+
+        deleteStudentListBtn.addEventListener('click', () => {
+            const selectedKey = savedStudentListsSelect.value;
+            if (selectedKey !== 'Selecciona una opción...' && confirm(`¿Estás seguro de que quieres borrar la lista "${selectedKey.replace('studentList_', '')}"?`)) {
+                localStorage.removeItem(selectedKey);
+                loadSavedLists();
+            }
+        });
+        
+        // --- RUBRIC MANAGEMENT ---
+        const renderRubricBuilder = () => {
+            // Header
+            let headerHTML = '<tr><th style="width: 20%;">Criterio</th>';
+            appState.rubric.levels.forEach((level, index) => {
+                headerHTML += `<th class="text-center">
+                    <input type="text" class="form-control form-control-sm text-center level-header" value="${level.name}" data-level-index="${index}" placeholder="Nivel ${index+1}">
+                    <button class="btn btn-sm btn-outline-danger mt-1 remove-level-btn" data-level-index="${index}"><i class="bi bi-trash"></i></button>
+                </th>`;
+            });
+            headerHTML += '</tr>';
+            rubricHead.innerHTML = headerHTML;
+
+            // Body
+            let bodyHTML = '';
+            appState.rubric.criteria.forEach((criterion, critIndex) => {
+                bodyHTML += `<tr data-criterion-index="${critIndex}">
+                    <td>
+                        <textarea class="form-control form-control-sm criterion-name" rows="2" placeholder="Nombre del criterio">${criterion.name}</textarea>
+                        <button class="btn btn-sm btn-outline-danger mt-1 remove-criterion-btn" data-criterion-index="${critIndex}"><i class="bi bi-trash"></i></button>
+                    </td>`;
+                appState.rubric.levels.forEach((level, levelIndex) => {
+                    const cell = criterion.cells[levelIndex] || { descriptor: '', score: 0 };
+                    bodyHTML += `<td>
+                        <textarea class="form-control form-control-sm descriptor" rows="3" placeholder="Descriptor...">${cell.descriptor}</textarea>
+                        <input type="number" class="form-control form-control-sm mt-1 score" value="${cell.score}" placeholder="Puntaje">
+                    </td>`;
+                });
+                bodyHTML += `</tr>`;
+            });
+            rubricBody.innerHTML = bodyHTML;
+            addRubricBuilderListeners();
+        };
+
+        const addRubricBuilderListeners = () => {
+            document.querySelectorAll('#rubric-builder input, #rubric-builder textarea').forEach(input => {
+                input.addEventListener('change', updateRubricFromBuilder);
+            });
+            document.querySelectorAll('.remove-criterion-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const critIndex = parseInt(e.currentTarget.dataset.criterionIndex);
+                    appState.rubric.criteria.splice(critIndex, 1);
+                    saveState();
+                    renderRubricBuilder();
+                });
+            });
+             document.querySelectorAll('.remove-level-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const levelIndex = parseInt(e.currentTarget.dataset.levelIndex);
+                    appState.rubric.levels.splice(levelIndex, 1);
+                    appState.rubric.criteria.forEach(crit => {
+                        crit.cells.splice(levelIndex, 1);
+                    });
+                    saveState();
+                    renderRubricBuilder();
+                });
+            });
+        };
+
+        const updateRubricFromBuilder = () => {
+            const newLevels = [];
+            document.querySelectorAll('.level-header').forEach((input, index) => {
+                newLevels.push({ name: input.value.trim() });
+            });
+            appState.rubric.levels = newLevels;
+
+            const newCriteria = [];
+            document.querySelectorAll('#rubric-body tr').forEach(row => {
+                const criterionName = row.querySelector('.criterion-name').value.trim();
+                const cells = [];
+                row.querySelectorAll('td:not(:first-child)').forEach(cellEl => {
+                    const descriptor = cellEl.querySelector('.descriptor').value.trim();
+                    const score = parseFloat(cellEl.querySelector('.score').value) || 0;
+                    cells.push({ descriptor, score });
+                });
+                if(criterionName) newCriteria.push({ name: criterionName, cells });
+            });
+            appState.rubric.criteria = newCriteria;
+            saveState();
+        };
+
+        addCriterionBtn.addEventListener('click', () => {
+            const newCriterion = {
+                name: '',
+                cells: appState.rubric.levels.map(() => ({ descriptor: '', score: 0 }))
+            };
+            appState.rubric.criteria.push(newCriterion);
+            renderRubricBuilder();
+        });
+
+        addLevelBtn.addEventListener('click', () => {
+            const newLevelName = `Nivel ${appState.rubric.levels.length + 1}`;
+            appState.rubric.levels.push({ name: newLevelName });
+            appState.rubric.criteria.forEach(criterion => {
+                criterion.cells.push({ descriptor: '', score: 0 });
+            });
+            renderRubricBuilder();
+        });
+
+        const loadSavedRubrics = () => {
+            const rubrics = getFromStorage('rubric_');
+            populateSelect(savedRubricsSelect, rubrics, 'rubric_');
+        };
+
+        saveRubricBtn.addEventListener('click', () => {
+            updateRubricFromBuilder(); // Ensure latest changes are captured
+            if(appState.rubric.criteria.length > 0 && appState.rubric.levels.length > 0) {
+                 document.getElementById('rubric-name').value = '';
+                saveRubricModal.show();
+            } else {
+                alert('La rúbrica está vacía. Añade criterios y niveles antes de guardar.');
+            }
+        });
+
+        confirmSaveRubricBtn.addEventListener('click', () => {
+            const rubricName = document.getElementById('rubric-name').value.trim();
+            if (rubricName) {
+                localStorage.setItem(`rubric_${rubricName}`, JSON.stringify(appState.rubric));
+                saveRubricModal.hide();
+                loadSavedRubrics();
+            } else {
+                alert('Por favor, ingresa un nombre para la rúbrica.');
+            }
+        });
+
+        loadRubricBtn.addEventListener('click', () => {
+            const selectedKey = savedRubricsSelect.value;
+            if (selectedKey !== 'Selecciona una rúbrica...') {
+                appState.rubric = JSON.parse(localStorage.getItem(selectedKey));
+                saveState();
+                renderRubricBuilder();
+            }
+        });
+        
+        deleteRubricBtn.addEventListener('click', () => {
+            const selectedKey = savedRubricsSelect.value;
+            if (selectedKey !== 'Selecciona una rúbrica...' && confirm(`¿Estás seguro de que quieres borrar la rúbrica "${selectedKey.replace('rubric_','')}"?`)) {
+                localStorage.removeItem(selectedKey);
+                loadSavedRubrics();
+            }
+        });
+
+        importCsvBtn.addEventListener('click', () => {
+            const csvText = document.getElementById('csv-input').value.trim();
+            if (!csvText) {
+                alert('El campo CSV está vacío.');
+                return;
+            }
+
+            try {
+                const rows = csvText.split('\n');
+                const newRubric = { criteria: [], levels: [] };
+
+                // Parse header from the first row's structure
+                const firstRowCols = rows[0].match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g);
+                const numLevels = (firstRowCols.length - 1) / 2;
+                for (let i = 0; i < numLevels; i++) {
+                    newRubric.levels.push({ name: `Nivel ${i + 1}` });
+                }
+
+                rows.forEach(rowText => {
+                    const cols = rowText.match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g).map(c => c.replace(/"/g, '').trim());
+                    if(cols.length < 3) return; // Skip empty/invalid rows
+
+                    const criterionName = cols[0];
+                    const cells = [];
+                    for(let i = 1; i < cols.length; i += 2) {
+                        cells.push({
+                            descriptor: cols[i],
+                            score: parseFloat(cols[i + 1]) || 0
+                        });
+                    }
+                    newRubric.criteria.push({ name: criterionName, cells });
+                });
+
+                appState.rubric = newRubric;
+                saveState();
+                renderRubricBuilder();
+                importCsvModal.hide();
+
+            } catch(error) {
+                alert('Error al procesar el CSV. Asegúrate de que el formato sea correcto.');
+                console.error(error);
+            }
+        });
+
+        // --- GROUP MANAGEMENT ---
+        createGroupBtn.addEventListener('click', () => {
+            const selectedStudents = Array.from(document.querySelectorAll('#group-student-selection .student-list-item.selected'))
+                .map(item => item.dataset.studentName);
+            const groupName = groupNameInput.value.trim();
+
+            if (!groupName) {
+                alert('Por favor, ingresa un nombre para el grupo.');
+                return;
+            }
+            if (selectedStudents.length === 0) {
+                alert('Selecciona al menos un estudiante para el grupo.');
+                return;
+            }
+
+            appState.groups.push({ name: groupName, members: selectedStudents });
+            saveState();
+            renderGroups();
+            populateEvaluationSelect();
+
+            // Clear selection
+            groupNameInput.value = '';
+            document.querySelectorAll('#group-student-selection .student-list-item.selected').forEach(item => item.classList.remove('selected'));
+        });
+
+        const renderGroups = () => {
+            groupsDisplayArea.innerHTML = '';
+            appState.groups.forEach((group, index) => {
+                const groupCard = document.createElement('div');
+                groupCard.className = 'card mb-2';
+                let membersHTML = group.members.map(m => `<span class="badge bg-secondary me-1">${m}</span>`).join('');
+                groupCard.innerHTML = `
+                    <div class="card-body p-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="card-title mb-0">${group.name}</h6>
+                            <button class="btn btn-sm btn-outline-danger remove-group-btn" data-group-index="${index}"><i class="bi bi-trash"></i></button>
+                        </div>
+                        <p class="card-text small mt-1">${membersHTML}</p>
+                    </div>`;
+                groupsDisplayArea.appendChild(groupCard);
+            });
+             document.querySelectorAll('.remove-group-btn').forEach(btn => {
+                btn.addEventListener('click', e => {
+                    const index = parseInt(e.currentTarget.dataset.groupIndex);
+                    appState.groups.splice(index, 1);
+                    // Also remove any evaluation associated with this group by name
+                    const groupNameToDelete = appState.groups[index]?.name;
+                    if (groupNameToDelete && appState.evaluations[groupNameToDelete]) {
+                        delete appState.evaluations[groupNameToDelete];
+                    }
+                    saveState();
+                    renderGroups();
+                    populateEvaluationSelect();
+                });
+            });
+        };
+
+        // --- EVALUATION ---
+        const populateEvaluationSelect = () => {
+            groupToEvaluateSelect.innerHTML = '<option selected disabled>Elige un grupo...</option>';
+            appState.groups.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group.name;
+                option.textContent = group.name;
+                groupToEvaluateSelect.appendChild(option);
+            });
+        };
+        
+        groupToEvaluateSelect.addEventListener('change', () => {
+            const groupName = groupToEvaluateSelect.value;
+            renderEvaluationRubric(groupName);
+            updateEvaluationResults(groupName);
+        });
+
+        const renderEvaluationRubric = (groupName) => {
+            let tableHTML = `<table class="table table-bordered table-hover rubric-table"><thead><tr><th style="width: 25%;">Criterio</th>`;
+            appState.rubric.levels.forEach(level => {
+                tableHTML += `<th class="text-center">${level.name}</th>`;
+            });
+            tableHTML += `</tr></thead><tbody>`;
+
+            const groupEvaluation = appState.evaluations[groupName]?.scores || {};
+
+            appState.rubric.criteria.forEach((criterion, critIndex) => {
+                tableHTML += `<tr><td><strong>${criterion.name}</strong></td>`;
+                criterion.cells.forEach((cell, levelIndex) => {
+                    const selectedScore = groupEvaluation[criterion.name];
+                    const isChecked = selectedScore === cell.score ? 'checked' : '';
+                    tableHTML += `<td class="text-center">
+                        <p class="descriptor">${cell.descriptor}</p>
+                        <strong class="text-primary">${cell.score} pts</strong>
+                        <div class="form-check d-flex justify-content-center mt-2">
+                            <input class="form-check-input" type="radio" name="crit_${critIndex}" value="${cell.score}" data-criterion-name="${criterion.name}" ${isChecked}>
+                        </div>
+                    </td>`;
+                });
+                tableHTML += `</tr>`;
+            });
+
+            tableHTML += '</tbody></table>';
+            evaluationRubricArea.innerHTML = tableHTML;
+            
+            document.querySelectorAll('#evaluation-rubric-area input[type="radio"]').forEach(radio => {
+                radio.addEventListener('change', () => updateEvaluationResults(groupName));
+            });
+        };
+
+        const updateEvaluationResults = (groupName) => {
+            if (!groupName || groupName === 'Elige un grupo...') {
+                evaluationResultsDisplay.innerHTML = '';
+                return;
+            }
+            let totalScore = 0;
+            const scores = {};
+            document.querySelectorAll('#evaluation-rubric-area input[type="radio"]:checked').forEach(radio => {
+                totalScore += parseFloat(radio.value);
+                scores[radio.dataset.criterionName] = parseFloat(radio.value);
+            });
+            
+            const numCriteria = appState.rubric.criteria.length;
+            const average = numCriteria > 0 ? (totalScore / numCriteria).toFixed(2) : 0;
+            const level = getPerformanceLevel(parseFloat(average));
+
+            evaluationResultsDisplay.innerHTML = `
+                <div class="text-center">
+                    Puntaje Total: <span class="badge bg-primary evaluation-results">${totalScore}</span>
+                </div>
+                <div class="text-center">
+                    Promedio: <span class="badge bg-info evaluation-results">${average}</span>
+                </div>
+                <div class="text-center">
+                    Nivel: <span class="badge bg-success evaluation-results">${level}</span>
+                </div>
+            `;
+            // Temporarily store scores to be saved on button click
+            if (!appState.evaluations[groupName]) appState.evaluations[groupName] = {};
+            appState.evaluations[groupName].tempScores = scores;
+            appState.evaluations[groupName].tempTotal = totalScore;
+            appState.evaluations[groupName].tempAverage = average;
+            appState.evaluations[groupName].tempLevel = level;
+        };
+
+        saveEvaluationBtn.addEventListener('click', () => {
+            const groupName = groupToEvaluateSelect.value;
+            if (!groupName || groupName === 'Elige un grupo...') {
+                alert('Selecciona un grupo para guardar la evaluación.');
+                return;
+            }
+            const evalData = appState.evaluations[groupName];
+            if (evalData && evalData.tempScores) {
+                appState.evaluations[groupName] = {
+                    scores: evalData.tempScores,
+                    totalScore: evalData.tempTotal,
+                    average: evalData.tempAverage,
+                    level: evalData.tempLevel
+                };
+                delete evalData.tempScores; // cleanup
+                saveState();
+                alert(`Evaluación para ${groupName} guardada.`);
+                renderAllResults();
+            } else {
+                alert('No hay una evaluación activa para guardar. Por favor, selecciona los niveles en la rúbrica.');
+            }
+        });
+
+        // --- RESULTS & EXPORT ---
+        const renderAllResults = () => {
+            resultsArea.innerHTML = '';
+            if (appState.groups.length === 0) {
+                 resultsArea.innerHTML = '<p class="text-muted">No hay grupos creados para mostrar resultados.</p>';
+                 return;
+            }
+            appState.groups.forEach(group => {
+                const evaluation = appState.evaluations[group.name];
+                const card = document.createElement('div');
+                card.className = 'card mb-3';
+
+                let cardBody;
+                if (evaluation) {
+                    cardBody = `
+                        <p class="mb-1"><strong>Estudiantes:</strong> ${group.members.join(', ')}</p>
+                        <div class="d-flex justify-content-around text-center mt-2">
+                           <div><strong>Puntaje:</strong> <span class="badge bg-primary">${evaluation.totalScore}</span></div>
+                           <div><strong>Promedio:</strong> <span class="badge bg-info">${evaluation.average}</span></div>
+                           <div><strong>Nivel:</strong> <span class="badge bg-success">${evaluation.level}</span></div>
+                        </div>
+                    `;
+                } else {
+                    cardBody = `<p class="text-muted">Este grupo aún no ha sido evaluado.</p>`;
+                }
+                
+                card.innerHTML = `
+                    <div class="card-header">
+                        <h5 class="mb-0">${group.name}</h5>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary edit-eval-btn" data-group-name="${group.name}"><i class="bi bi-pencil"></i> Modificar</button>
+                            <button class="btn btn-outline-secondary export-pdf-btn" data-group-name="${group.name}" ${!evaluation ? 'disabled' : ''}><i class="bi bi-file-earmark-pdf"></i> Exportar PDF</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        ${cardBody}
+                    </div>
+                `;
+                resultsArea.appendChild(card);
+            });
+
+            document.querySelectorAll('.edit-eval-btn').forEach(btn => {
+                btn.addEventListener('click', e => {
+                    const groupName = e.currentTarget.dataset.groupName;
+                    groupToEvaluateSelect.value = groupName;
+                    // Switch to evaluate tab
+                    const evaluateTab = new bootstrap.Tab(document.getElementById('evaluate-tab'));
+                    evaluateTab.show();
+                    renderEvaluationRubric(groupName);
+                    updateEvaluationResults(groupName);
+                });
+            });
+
+            document.querySelectorAll('.export-pdf-btn').forEach(btn => {
+                btn.addEventListener('click', e => {
+                    const groupName = e.currentTarget.dataset.groupName;
+                    exportGroupToPDF(groupName);
+                });
+            });
+        };
+        
+        const exportGroupToPDF = (groupName) => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const group = appState.groups.find(g => g.name === groupName);
+            const evaluation = appState.evaluations[groupName];
+            
+            if (!group || !evaluation) {
+                alert('No se puede exportar: faltan datos del grupo o de la evaluación.');
+                return;
+            }
+
+            doc.setFontSize(18);
+            doc.text(rubricTitleInput.value || "Reporte de Evaluación", 14, 22);
+
+            doc.setFontSize(11);
+            doc.text(`Curso: ${courseNameInput.value || 'N/A'}`, 14, 32);
+            doc.text(`Docente: ${teacherNameInput.value || 'N/A'}`, 14, 38);
+            doc.text(`Fecha: ${evaluationDateInput.value || 'N/A'}`, 120, 32);
+            doc.text(`Unidad: ${unitNameInput.value || 'N/A'}`, 120, 38);
+
+            doc.setLineWidth(0.5);
+            doc.line(14, 42, 196, 42);
+
+            doc.setFontSize(14);
+            doc.text(`Grupo: ${group.name}`, 14, 52);
+            doc.setFontSize(11);
+            doc.text("Integrantes:", 14, 58);
+            let membersText = doc.splitTextToSize(group.members.join(', '), 170);
+            doc.text(membersText, 20, 64);
+            
+            let finalY = 64 + (membersText.length * 6) + 10;
+            
+            // Results Summary
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.text("Resultados de la Evaluación", 14, finalY);
+            doc.setFont(undefined, 'normal');
+            doc.text(`Puntaje Total Obtenido: ${evaluation.totalScore}`, 20, finalY + 7);
+            doc.text(`Promedio Final: ${evaluation.average}`, 20, finalY + 14);
+            doc.text(`Nivel de Desempeño: ${evaluation.level}`, 20, finalY + 21);
+            finalY += 30;
+
+            // Rubric Table
+            const head = [['Criterio', 'Nivel Seleccionado', 'Descriptor', 'Puntaje Obtenido']];
+            const body = appState.rubric.criteria.map(criterion => {
+                const score = evaluation.scores[criterion.name];
+                let levelName = 'No evaluado';
+                let descriptor = 'N/A';
+
+                for (let i = 0; i < criterion.cells.length; i++) {
+                    if (criterion.cells[i].score === score) {
+                        levelName = appState.rubric.levels[i].name;
+                        descriptor = criterion.cells[i].descriptor;
+                        break;
+                    }
+                }
+                return [criterion.name, levelName, descriptor, score];
+            });
+
+            doc.autoTable({
+                head: head,
+                body: body,
+                startY: finalY,
+                headStyles: { fillColor: [22, 160, 133] },
+                didDrawPage: function(data) {
+                    // Footer
+                    let str = "Página " + doc.internal.getNumberOfPages();
+                    doc.setFontSize(10);
+                    doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
+                }
+            });
+
+            doc.save(`Evaluacion_${group.name.replace(/ /g, '_')}.pdf`);
+        };
+        
+        clearAllDataBtn.addEventListener('click', () => {
+            if (confirm('¡ADVERTENCIA! Esta acción borrará permanentemente TODOS los datos guardados (listas, rúbricas, grupos y evaluaciones) de este navegador. ¿Deseas continuar?')) {
+                localStorage.clear();
+                appState = { students: [], rubric: { criteria: [], levels: [] }, groups: [], evaluations: {}, generalInfo: {} };
+                initializeApp();
+                 // Limpiar inputs que no se limpian con initializeApp
+                const inputsToClear = [
+                    'student-list-paste', 'group-name',
+                    'course-name', 'teacher-name', 'rubric-title', 'unit-name'
+                ];
+                inputsToClear.forEach(id => document.getElementById(id).value = '');
+                evaluationRubricArea.innerHTML = '';
+                evaluationResultsDisplay.innerHTML = '';
+            }
+        });
+
+        // First Load
+        initializeApp();
+    });
+    </script>
+</body>
+</html>
