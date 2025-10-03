@@ -32,6 +32,12 @@
             color: white;
             font-weight: bold;
         }
+        .student-list-item.unavailable {
+            background-color: #e9ecef;
+            color: #adb5bd;
+            cursor: not-allowed;
+            text-decoration: line-through;
+        }
         .rubric-table th, .rubric-table td {
             vertical-align: middle;
         }
@@ -58,10 +64,27 @@
             border-color: #dee2e6 #dee2e6 #fff;
             font-weight: bold;
         }
-        #results-area .card-header {
+        #results-area .card-header, #final-results-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+        /* --- Estilos para la celda seleccionable --- */
+        .selectable-cell {
+            cursor: pointer;
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
+        .selectable-cell:hover {
+            background-color: #e0f2fe; /* Celeste claro */
+        }
+        .selectable-cell.selected-cell {
+            background-color: #0d6efd;
+            color: white;
+            box-shadow: inset 0 0 0 3px #0a58ca;
+        }
+        .selectable-cell.selected-cell .descriptor,
+        .selectable-cell.selected-cell strong {
+            color: white !important;
         }
     </style>
 </head>
@@ -210,7 +233,7 @@
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6">
-                                <h5>1. Selecciona los estudiantes</h5>
+                                <h5>1. Selecciona estudiantes disponibles</h5>
                                 <div id="group-student-selection" class="list-group" style="max-height: 400px; overflow-y: auto;">
                                     <!-- Lista de estudiantes para seleccionar -->
                                 </div>
@@ -240,14 +263,14 @@
                         Panel de Evaluación
                     </div>
                     <div class="card-body">
-                        <div class="row">
+                        <div class="row align-items-end">
                             <div class="col-md-4">
                                 <label for="group-to-evaluate" class="form-label">Selecciona un grupo para evaluar</label>
                                 <select class="form-select" id="group-to-evaluate">
                                      <option selected disabled>Elige un grupo...</option>
                                 </select>
                             </div>
-                            <div class="col-md-8 d-flex align-items-end">
+                            <div class="col-md-8">
                                <div id="evaluation-results-display" class="d-flex gap-4">
                                    <!-- Los resultados se mostrarán aquí -->
                                </div>
@@ -257,13 +280,17 @@
                         <div id="evaluation-rubric-area" class="table-responsive">
                             <!-- La rúbrica para evaluar se mostrará aquí -->
                         </div>
+                        <div id="individual-evaluation-area" class="mt-4">
+                            <!-- El área para evaluación individual aparecerá aquí -->
+                        </div>
                         <button class="btn btn-success mt-3" id="save-evaluation-btn"><i class="bi bi-check-circle"></i> Guardar Evaluación</button>
                     </div>
                 </div>
 
                 <div class="card">
-                    <div class="card-header">
-                       Resultados Finales
+                    <div class="card-header" id="final-results-header">
+                       <h5 class="mb-0">Resultados Finales</h5>
+                       <button class="btn btn-sm btn-info" id="export-all-pdf-btn"><i class="bi bi-collection-fill"></i> Exportar Todos los Resultados</button>
                     </div>
                     <div class="card-body" id="results-area">
                         <!-- Resumen de evaluaciones por grupo -->
@@ -323,12 +350,16 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p>Pega los datos de tu rúbrica en formato CSV. El formato debe ser:</p>
-                    <code>Criterio, "Descriptor Nivel 1", Puntaje Nivel 1, "Descriptor Nivel 2", Puntaje Nivel 2, ...</code>
-                    <p class="mt-2"><small class="text-muted">Cada fila es un criterio. La primera columna es el nombre del criterio, seguida de pares de descriptor y puntaje para cada nivel.</small></p>
-                    <textarea id="csv-input" class="form-control" rows="10" placeholder='Ejemplo:
-Organización,"La estructura no es clara",1,"La estructura es básica pero funcional",3,"La estructura es lógica y efectiva",5
-Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes con errores de formato",3,"Excelente integración y citación de fuentes",5'></textarea>
+                    <p>El importador detectará automáticamente el separador (coma o punto y coma).</p>
+                    <p><b>Formato Requerido:</b></p>
+                    <p class="mb-1">La <b>primera fila</b> define los niveles y sus puntajes. La segunda columna debe ser "Criterio".</p>
+                    <code>,Criterio,Nombre Nivel 1 (Puntaje),Nombre Nivel 2 (Puntaje),...</code>
+                    <p class="mt-2 mb-1">Las <b>siguientes filas</b> definen cada criterio y sus descriptores.</p>
+                    <code>,Nombre del Criterio,"Descriptor Nivel 1","Descriptor Nivel 2",...</code>
+                    <p class="mt-2"><small class="text-muted">Los textos que contengan el separador o saltos de línea deben ir entre comillas dobles (" ").</small></p>
+                    <textarea id="csv-input" class="form-control" rows="10" placeholder=',Criterio,Nivel 1 (1 punto),Nivel 2 (3 puntos),Nivel 3 (5 puntos)
+,Claridad de ideas,"Las ideas son confusas.","Las ideas son claras pero poco coherentes.","Todas las ideas son claras y coherentes."
+,Organización,"No existe organización.","La organización es básica.","La organización es excelente y lógica."'></textarea>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -386,9 +417,11 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
         
         const groupToEvaluateSelect = document.getElementById('group-to-evaluate');
         const evaluationRubricArea = document.getElementById('evaluation-rubric-area');
+        const individualEvaluationArea = document.getElementById('individual-evaluation-area');
         const evaluationResultsDisplay = document.getElementById('evaluation-results-display');
         const saveEvaluationBtn = document.getElementById('save-evaluation-btn');
         const resultsArea = document.getElementById('results-area');
+        const exportAllPdfBtn = document.getElementById('export-all-pdf-btn');
 
         const courseNameInput = document.getElementById('course-name');
         const teacherNameInput = document.getElementById('teacher-name');
@@ -411,7 +444,6 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
             const savedState = localStorage.getItem('rubricApp_state');
             if (savedState) {
                 appState = JSON.parse(savedState);
-                // Ensure default structure if loading older state
                 if (!appState.generalInfo) appState.generalInfo = {};
             }
         };
@@ -438,10 +470,12 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
         };
 
         const getPerformanceLevel = (avg) => {
-            if (avg === 5) return "Destacado";
-            if (avg >= 4) return "Logrado";
-            if (avg >= 3) return "Proceso";
-            if (avg >= 2) return "Inicio";
+            if(avg === null || avg === undefined) return "N/A";
+            const avgNum = parseFloat(avg);
+            if (avgNum === 5) return "Destacado";
+            if (avgNum >= 4) return "Logrado";
+            if (avgNum >= 3) return "Proceso";
+            if (avgNum >= 2) return "Inicio";
             return "Previo al Inicio";
         };
         
@@ -450,6 +484,7 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
             loadState();
             evaluationDateInput.valueAsDate = new Date();
             renderStudents();
+            renderStudentsForGrouping();
             renderRubricBuilder();
             loadSavedLists();
             loadSavedRubrics();
@@ -476,8 +511,19 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
 
         // --- STUDENT MANAGEMENT ---
         const renderStudents = () => {
-            const listsToUpdate = [studentListDisplay, groupStudentSelection];
-            listsToUpdate.forEach(list => list.innerHTML = '');
+            studentListDisplay.innerHTML = '';
+            appState.students.forEach(student => {
+                const studentItem = document.createElement('div');
+                studentItem.className = 'list-group-item';
+                studentItem.textContent = student;
+                studentListDisplay.appendChild(studentItem);
+            });
+            studentCount.textContent = appState.students.length;
+        };
+
+        const renderStudentsForGrouping = () => {
+            groupStudentSelection.innerHTML = '';
+            const studentsInGroups = new Set(appState.groups.flatMap(g => g.members));
             
             appState.students.forEach(student => {
                 const studentItem = document.createElement('div');
@@ -485,16 +531,15 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
                 studentItem.textContent = student;
                 studentItem.dataset.studentName = student;
 
-                const displayCopy = studentItem.cloneNode(true);
-                studentListDisplay.appendChild(displayCopy);
-                
-                const selectionCopy = studentItem.cloneNode(true);
-                selectionCopy.addEventListener('click', () => {
-                    selectionCopy.classList.toggle('selected');
-                });
-                groupStudentSelection.appendChild(selectionCopy);
+                if (studentsInGroups.has(student)) {
+                    studentItem.classList.add('unavailable');
+                } else {
+                    studentItem.addEventListener('click', () => {
+                        studentItem.classList.toggle('selected');
+                    });
+                }
+                groupStudentSelection.appendChild(studentItem);
             });
-            studentCount.textContent = appState.students.length;
         };
 
         processStudentsBtn.addEventListener('click', () => {
@@ -503,6 +548,7 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
             studentListPaste.value = '';
             saveState();
             renderStudents();
+            renderStudentsForGrouping();
         });
 
         const loadSavedLists = () => {
@@ -536,6 +582,7 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
                 appState.students = JSON.parse(localStorage.getItem(selectedKey));
                 saveState();
                 renderStudents();
+                renderStudentsForGrouping();
             }
         });
 
@@ -549,7 +596,6 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
         
         // --- RUBRIC MANAGEMENT ---
         const renderRubricBuilder = () => {
-            // Header
             let headerHTML = '<tr><th style="width: 20%;">Criterio</th>';
             appState.rubric.levels.forEach((level, index) => {
                 headerHTML += `<th class="text-center">
@@ -560,7 +606,6 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
             headerHTML += '</tr>';
             rubricHead.innerHTML = headerHTML;
 
-            // Body
             let bodyHTML = '';
             appState.rubric.criteria.forEach((criterion, critIndex) => {
                 bodyHTML += `<tr data-criterion-index="${critIndex}">
@@ -572,7 +617,7 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
                     const cell = criterion.cells[levelIndex] || { descriptor: '', score: 0 };
                     bodyHTML += `<td>
                         <textarea class="form-control form-control-sm descriptor" rows="3" placeholder="Descriptor...">${cell.descriptor}</textarea>
-                        <input type="number" class="form-control form-control-sm mt-1 score" value="${cell.score}" placeholder="Puntaje">
+                        <input type="number" step="0.1" class="form-control form-control-sm mt-1 score" value="${cell.score}" placeholder="Puntaje">
                     </td>`;
                 });
                 bodyHTML += `</tr>`;
@@ -608,7 +653,7 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
 
         const updateRubricFromBuilder = () => {
             const newLevels = [];
-            document.querySelectorAll('.level-header').forEach((input, index) => {
+            document.querySelectorAll('.level-header').forEach((input) => {
                 newLevels.push({ name: input.value.trim() });
             });
             appState.rubric.levels = newLevels;
@@ -629,10 +674,7 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
         };
 
         addCriterionBtn.addEventListener('click', () => {
-            const newCriterion = {
-                name: '',
-                cells: appState.rubric.levels.map(() => ({ descriptor: '', score: 0 }))
-            };
+            const newCriterion = { name: '', cells: appState.rubric.levels.map(() => ({ descriptor: '', score: 0 })) };
             appState.rubric.criteria.push(newCriterion);
             renderRubricBuilder();
         });
@@ -652,7 +694,7 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
         };
 
         saveRubricBtn.addEventListener('click', () => {
-            updateRubricFromBuilder(); // Ensure latest changes are captured
+            updateRubricFromBuilder();
             if(appState.rubric.criteria.length > 0 && appState.rubric.levels.length > 0) {
                  document.getElementById('rubric-name').value = '';
                 saveRubricModal.show();
@@ -688,47 +730,138 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
                 loadSavedRubrics();
             }
         });
+        
+        const parseCSV = (csvText) => {
+            const text = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            
+            const firstLine = text.substring(0, text.indexOf('\n'));
+            const commaCount = (firstLine.match(/,/g) || []).length;
+            const semicolonCount = (firstLine.match(/;/g) || []).length;
+            const delimiter = semicolonCount > commaCount ? ';' : ',';
+
+            const table = [];
+            let currentRow = [];
+            let currentField = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+
+                if (inQuotes) {
+                    if (char === '"') {
+                        if (i + 1 < text.length && text[i + 1] === '"') {
+                            currentField += '"';
+                            i++;
+                        } else {
+                            inQuotes = false;
+                        }
+                    } else {
+                        currentField += char;
+                    }
+                } else {
+                    if (char === '"') {
+                        inQuotes = true;
+                    } else if (char === delimiter) {
+                        currentRow.push(currentField.trim());
+                        currentField = '';
+                    } else if (char === '\n') {
+                        currentRow.push(currentField.trim());
+                        table.push(currentRow);
+                        currentRow = [];
+                        currentField = '';
+                    } else {
+                        currentField += char;
+                    }
+                }
+            }
+            
+            if (currentField || currentRow.length > 0) {
+                currentRow.push(currentField.trim());
+                table.push(currentRow);
+            }
+            
+            return table;
+        };
 
         importCsvBtn.addEventListener('click', () => {
             const csvText = document.getElementById('csv-input').value.trim();
-            if (!csvText) {
-                alert('El campo CSV está vacío.');
-                return;
-            }
+            if (!csvText) { alert('El campo CSV está vacío.'); return; }
 
             try {
-                const rows = csvText.split('\n');
-                const newRubric = { criteria: [], levels: [] };
+                const table = parseCSV(csvText);
 
-                // Parse header from the first row's structure
-                const firstRowCols = rows[0].match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g);
-                const numLevels = (firstRowCols.length - 1) / 2;
-                for (let i = 0; i < numLevels; i++) {
-                    newRubric.levels.push({ name: `Nivel ${i + 1}` });
+                if (table.length < 2) {
+                    alert('El CSV debe tener al menos 2 filas: una para los encabezados y otra para un criterio.');
+                    return;
+                }
+                
+                const newRubric = { criteria: [], levels: [] };
+                const skippedCriteria = [];
+
+                // 1. Parse Header Row for Levels and Scores
+                const headerRow = table[0];
+                if (headerRow.length < 3 || headerRow[1].trim().toLowerCase() !== 'criterio') {
+                    alert('Error de formato en la primera fila. Debe ser: ,Criterio,Nombre Nivel 1 (Puntaje),Nombre Nivel 2 (Puntaje),...');
+                    return;
                 }
 
-                rows.forEach(rowText => {
-                    const cols = rowText.match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g).map(c => c.replace(/"/g, '').trim());
-                    if(cols.length < 3) return; // Skip empty/invalid rows
-
-                    const criterionName = cols[0];
-                    const cells = [];
-                    for(let i = 1; i < cols.length; i += 2) {
-                        cells.push({
-                            descriptor: cols[i],
-                            score: parseFloat(cols[i + 1]) || 0
-                        });
+                const levelHeaders = headerRow.slice(2);
+                const scores = [];
+                levelHeaders.forEach(header => {
+                    const match = header.match(/(.+)\s*\((\d+\.?\d*)/); // Regex to find name and score like "Level (1.5)"
+                    if (match) {
+                        newRubric.levels.push({ name: match[1].trim() });
+                        scores.push(parseFloat(match[2]));
+                    } else {
+                        // Fallback if no score is found in parenthesis
+                        newRubric.levels.push({ name: header.trim() });
+                        scores.push(0); // Default score
                     }
-                    newRubric.criteria.push({ name: criterionName, cells });
                 });
+                
+                // 2. Parse Criteria Rows
+                for (let i = 1; i < table.length; i++) {
+                    const cols = table[i];
+                    if (cols.every(c => c.trim() === '')) continue;
+                    
+                    // expected length is levels + 2 columns (empty, criterion)
+                    if (cols.length !== newRubric.levels.length + 2) {
+                         const criterionNameGuess = cols[1] || `Fila ${i+1}`;
+                         console.warn(`La fila para el criterio "${criterionNameGuess}" tiene un número incorrecto de columnas. Se omitirá.`);
+                         skippedCriteria.push(criterionNameGuess);
+                         continue;
+                    }
+
+                    const criterionName = cols[1].trim();
+                    if (!criterionName) continue;
+
+                    const descriptors = cols.slice(2);
+                    const cells = [];
+                    descriptors.forEach((descriptor, index) => {
+                        cells.push({
+                            descriptor: descriptor.trim(),
+                            score: scores[index] !== undefined ? scores[index] : 0 // Use score from header
+                        });
+                    });
+                    
+                    newRubric.criteria.push({ name: criterionName, cells });
+                }
 
                 appState.rubric = newRubric;
                 saveState();
                 renderRubricBuilder();
                 importCsvModal.hide();
+                
+                if (skippedCriteria.length > 0) {
+                    alert(`Rúbrica importada, pero se omitieron los siguientes criterios por tener un formato incorrecto (número de columnas no coincide con los niveles):\n\n- ${skippedCriteria.join('\n- ')}`);
+                } else if (newRubric.criteria.length > 0) {
+                    alert('Rúbrica importada con éxito.');
+                } else {
+                    alert('Se procesó el CSV, pero no se encontraron criterios válidos.');
+                }
 
             } catch(error) {
-                alert('Error al procesar el CSV. Asegúrate de que el formato sea correcto.');
+                alert('Ocurrió un error inesperado al procesar el CSV. Revisa el formato y la consola de desarrollador para más detalles.');
                 console.error(error);
             }
         });
@@ -739,23 +872,15 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
                 .map(item => item.dataset.studentName);
             const groupName = groupNameInput.value.trim();
 
-            if (!groupName) {
-                alert('Por favor, ingresa un nombre para el grupo.');
-                return;
-            }
-            if (selectedStudents.length === 0) {
-                alert('Selecciona al menos un estudiante para el grupo.');
-                return;
-            }
+            if (!groupName) { alert('Por favor, ingresa un nombre para el grupo.'); return; }
+            if (selectedStudents.length === 0) { alert('Selecciona al menos un estudiante para el grupo.'); return; }
 
             appState.groups.push({ name: groupName, members: selectedStudents });
             saveState();
             renderGroups();
             populateEvaluationSelect();
-
-            // Clear selection
+            renderStudentsForGrouping();
             groupNameInput.value = '';
-            document.querySelectorAll('#group-student-selection .student-list-item.selected').forEach(item => item.classList.remove('selected'));
         });
 
         const renderGroups = () => {
@@ -777,21 +902,26 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
              document.querySelectorAll('.remove-group-btn').forEach(btn => {
                 btn.addEventListener('click', e => {
                     const index = parseInt(e.currentTarget.dataset.groupIndex);
-                    appState.groups.splice(index, 1);
-                    // Also remove any evaluation associated with this group by name
                     const groupNameToDelete = appState.groups[index]?.name;
-                    if (groupNameToDelete && appState.evaluations[groupNameToDelete]) {
-                        delete appState.evaluations[groupNameToDelete];
+                    
+                    if (groupNameToDelete) {
+                        appState.groups.splice(index, 1);
+                        if (appState.evaluations[groupNameToDelete]) {
+                            delete appState.evaluations[groupNameToDelete];
+                        }
                     }
                     saveState();
                     renderGroups();
                     populateEvaluationSelect();
+                    renderStudentsForGrouping();
+                    renderAllResults();
                 });
             });
         };
 
         // --- EVALUATION ---
         const populateEvaluationSelect = () => {
+            const currentVal = groupToEvaluateSelect.value;
             groupToEvaluateSelect.innerHTML = '<option selected disabled>Elige un grupo...</option>';
             appState.groups.forEach(group => {
                 const option = document.createElement('option');
@@ -799,34 +929,37 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
                 option.textContent = group.name;
                 groupToEvaluateSelect.appendChild(option);
             });
+            groupToEvaluateSelect.value = currentVal;
         };
         
         groupToEvaluateSelect.addEventListener('change', () => {
             const groupName = groupToEvaluateSelect.value;
-            renderEvaluationRubric(groupName);
-            updateEvaluationResults(groupName);
+            renderEvaluationUI(groupName);
         });
 
+        const renderEvaluationUI = (groupName) => {
+            renderEvaluationRubric(groupName);
+            renderIndividualEvaluation(groupName);
+            updateEvaluationResults(groupName);
+        }
+
         const renderEvaluationRubric = (groupName) => {
-            let tableHTML = `<table class="table table-bordered table-hover rubric-table"><thead><tr><th style="width: 25%;">Criterio</th>`;
+            let tableHTML = `<h5 class="text-primary">Evaluación del Trabajo Grupal</h5><table class="table table-bordered table-hover rubric-table"><thead><tr><th style="width: 25%;">Criterio</th>`;
             appState.rubric.levels.forEach(level => {
                 tableHTML += `<th class="text-center">${level.name}</th>`;
             });
             tableHTML += `</tr></thead><tbody>`;
 
-            const groupEvaluation = appState.evaluations[groupName]?.scores || {};
+            const groupEval = appState.evaluations[groupName];
+            const groupScores = groupEval?.groupScores || {};
 
             appState.rubric.criteria.forEach((criterion, critIndex) => {
                 tableHTML += `<tr><td><strong>${criterion.name}</strong></td>`;
-                criterion.cells.forEach((cell, levelIndex) => {
-                    const selectedScore = groupEvaluation[criterion.name];
-                    const isChecked = selectedScore === cell.score ? 'checked' : '';
-                    tableHTML += `<td class="text-center">
+                criterion.cells.forEach((cell) => {
+                    const isSelected = groupScores[criterion.name] === cell.score ? 'selected-cell' : '';
+                    tableHTML += `<td class="text-center selectable-cell ${isSelected}" data-criterion-name="${criterion.name}" data-score="${cell.score}">
                         <p class="descriptor">${cell.descriptor}</p>
                         <strong class="text-primary">${cell.score} pts</strong>
-                        <div class="form-check d-flex justify-content-center mt-2">
-                            <input class="form-check-input" type="radio" name="crit_${critIndex}" value="${cell.score}" data-criterion-name="${criterion.name}" ${isChecked}>
-                        </div>
                     </td>`;
                 });
                 tableHTML += `</tr>`;
@@ -835,9 +968,42 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
             tableHTML += '</tbody></table>';
             evaluationRubricArea.innerHTML = tableHTML;
             
-            document.querySelectorAll('#evaluation-rubric-area input[type="radio"]').forEach(radio => {
-                radio.addEventListener('change', () => updateEvaluationResults(groupName));
+            document.querySelectorAll('#evaluation-rubric-area .selectable-cell').forEach(cell => {
+                cell.addEventListener('click', (e) => {
+                    const clickedCell = e.currentTarget;
+                    const row = clickedCell.parentElement;
+                    row.querySelectorAll('.selectable-cell').forEach(c => c.classList.remove('selected-cell'));
+                    clickedCell.classList.add('selected-cell');
+                    updateEvaluationResults(groupName);
+                });
             });
+        };
+
+        const renderIndividualEvaluation = (groupName) => {
+            const group = appState.groups.find(g => g.name === groupName);
+            if (!group) { individualEvaluationArea.innerHTML = ''; return; }
+            
+            const groupEval = appState.evaluations[groupName];
+            // If there's a saved evaluation, use its average, otherwise calculate it fresh
+            const groupAverage = groupEval ? groupEval.groupAverage : 0;
+
+            let tableHTML = `<h5 class="text-primary mt-4">Evaluación Individual de Miembros</h5>
+            <table class="table table-striped"><thead><tr><th>Estudiante</th><th>Nota Final Individual</th><th>Comentarios / Observaciones</th></tr></thead><tbody>`;
+
+            group.members.forEach(member => {
+                const memberEval = groupEval?.memberEvaluations.find(m => m.name === member);
+                const score = memberEval ? memberEval.finalScore : groupAverage;
+                const comments = memberEval ? memberEval.comments : '';
+
+                tableHTML += `
+                    <tr data-member-name="${member}">
+                        <td>${member}</td>
+                        <td><input type="number" step="0.1" class="form-control individual-score" value="${score.toFixed(2)}"></td>
+                        <td><textarea class="form-control individual-comment" rows="1">${comments}</textarea></td>
+                    </tr>`;
+            });
+            tableHTML += `</tbody></table>`;
+            individualEvaluationArea.innerHTML = tableHTML;
         };
 
         const updateEvaluationResults = (groupName) => {
@@ -845,66 +1011,92 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
                 evaluationResultsDisplay.innerHTML = '';
                 return;
             }
+
+            const oldGroupAverage = appState.evaluations[groupName]?.groupAverage;
             let totalScore = 0;
-            const scores = {};
-            document.querySelectorAll('#evaluation-rubric-area input[type="radio"]:checked').forEach(radio => {
-                totalScore += parseFloat(radio.value);
-                scores[radio.dataset.criterionName] = parseFloat(radio.value);
+            document.querySelectorAll('#evaluation-rubric-area .selected-cell').forEach(cell => {
+                totalScore += parseFloat(cell.dataset.score);
             });
             
             const numCriteria = appState.rubric.criteria.length;
-            const average = numCriteria > 0 ? (totalScore / numCriteria).toFixed(2) : 0;
-            const level = getPerformanceLevel(parseFloat(average));
+            const newAverage = numCriteria > 0 ? (totalScore / numCriteria) : 0;
+            const newAverageString = newAverage.toFixed(2);
+            const level = getPerformanceLevel(newAverageString);
 
             evaluationResultsDisplay.innerHTML = `
                 <div class="text-center">
-                    Puntaje Total: <span class="badge bg-primary evaluation-results">${totalScore}</span>
+                    Puntaje Grupal: <span class="badge bg-primary evaluation-results">${totalScore}</span>
                 </div>
                 <div class="text-center">
-                    Promedio: <span class="badge bg-info evaluation-results">${average}</span>
+                    Promedio Grupal: <span class="badge bg-info evaluation-results">${newAverageString}</span>
                 </div>
                 <div class="text-center">
-                    Nivel: <span class="badge bg-success evaluation-results">${level}</span>
+                    Nivel Grupal: <span class="badge bg-success evaluation-results">${level}</span>
                 </div>
             `;
-            // Temporarily store scores to be saved on button click
-            if (!appState.evaluations[groupName]) appState.evaluations[groupName] = {};
-            appState.evaluations[groupName].tempScores = scores;
-            appState.evaluations[groupName].tempTotal = totalScore;
-            appState.evaluations[groupName].tempAverage = average;
-            appState.evaluations[groupName].tempLevel = level;
+            
+            const groupEval = appState.evaluations[groupName];
+            document.querySelectorAll('#individual-evaluation-area tr[data-member-name]').forEach(row => {
+                const scoreInput = row.querySelector('.individual-score');
+                const currentIndividualScore = parseFloat(scoreInput.value);
+                const memberName = row.dataset.memberName;
+                const memberEval = groupEval?.memberEvaluations.find(m => m.name === memberName);
+
+                // Check if the current score was the same as the PREVIOUSLY saved group average.
+                const wasDefaultScore = oldGroupAverage !== undefined && Math.abs(currentIndividualScore - oldGroupAverage) < 0.001;
+                
+                // Update the score IF the member has never been evaluated OR if their score was the default one.
+                if (!memberEval || wasDefaultScore) {
+                    scoreInput.value = newAverageString;
+                }
+            });
         };
 
         saveEvaluationBtn.addEventListener('click', () => {
             const groupName = groupToEvaluateSelect.value;
-            if (!groupName || groupName === 'Elige un grupo...') {
-                alert('Selecciona un grupo para guardar la evaluación.');
-                return;
-            }
-            const evalData = appState.evaluations[groupName];
-            if (evalData && evalData.tempScores) {
-                appState.evaluations[groupName] = {
-                    scores: evalData.tempScores,
-                    totalScore: evalData.tempTotal,
-                    average: evalData.tempAverage,
-                    level: evalData.tempLevel
-                };
-                delete evalData.tempScores; // cleanup
-                saveState();
-                alert(`Evaluación para ${groupName} guardada.`);
-                renderAllResults();
-            } else {
-                alert('No hay una evaluación activa para guardar. Por favor, selecciona los niveles en la rúbrica.');
-            }
+            if (!groupName || groupName === 'Elige un grupo...') { alert('Selecciona un grupo para guardar la evaluación.'); return; }
+
+            const newEvaluation = { groupScores: {}, memberEvaluations: [] };
+            let totalScore = 0;
+            document.querySelectorAll('#evaluation-rubric-area .selected-cell').forEach(cell => {
+                const score = parseFloat(cell.dataset.score);
+                totalScore += score;
+                newEvaluation.groupScores[cell.dataset.criterionName] = score;
+            });
+
+            const numCriteria = appState.rubric.criteria.length;
+            newEvaluation.groupTotalScore = totalScore;
+            newEvaluation.groupAverage = numCriteria > 0 ? (totalScore / numCriteria) : 0; // Save as number
+            newEvaluation.groupLevel = getPerformanceLevel(newEvaluation.groupAverage);
+
+            document.querySelectorAll('#individual-evaluation-area tr[data-member-name]').forEach(row => {
+                const name = row.dataset.memberName;
+                const finalScore = parseFloat(row.querySelector('.individual-score').value); // Save as number
+                const comments = row.querySelector('.individual-comment').value;
+                newEvaluation.memberEvaluations.push({
+                    name,
+                    finalScore: finalScore,
+                    finalLevel: getPerformanceLevel(finalScore),
+                    comments
+                });
+            });
+            
+            appState.evaluations[groupName] = newEvaluation;
+            saveState();
+            alert(`Evaluación para ${groupName} guardada.`);
+            renderAllResults();
         });
 
         // --- RESULTS & EXPORT ---
         const renderAllResults = () => {
             resultsArea.innerHTML = '';
+            exportAllPdfBtn.disabled = Object.keys(appState.evaluations).length === 0;
+
             if (appState.groups.length === 0) {
                  resultsArea.innerHTML = '<p class="text-muted">No hay grupos creados para mostrar resultados.</p>';
                  return;
             }
+
             appState.groups.forEach(group => {
                 const evaluation = appState.evaluations[group.name];
                 const card = document.createElement('div');
@@ -912,13 +1104,14 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
 
                 let cardBody;
                 if (evaluation) {
+                    let membersEvalHTML = evaluation.memberEvaluations.map(m => `
+                        <li>${m.name}: <strong>${m.finalScore.toFixed(2)}</strong> (${m.finalLevel})</li>
+                    `).join('');
+
                     cardBody = `
-                        <p class="mb-1"><strong>Estudiantes:</strong> ${group.members.join(', ')}</p>
-                        <div class="d-flex justify-content-around text-center mt-2">
-                           <div><strong>Puntaje:</strong> <span class="badge bg-primary">${evaluation.totalScore}</span></div>
-                           <div><strong>Promedio:</strong> <span class="badge bg-info">${evaluation.average}</span></div>
-                           <div><strong>Nivel:</strong> <span class="badge bg-success">${evaluation.level}</span></div>
-                        </div>
+                        <h6><span class="badge bg-secondary">Promedio Grupal: ${evaluation.groupAverage.toFixed(2)}</span></h6>
+                        <p class="mb-1"><strong>Resultados Individuales:</strong></p>
+                        <ul class="list-unstyled small">${membersEvalHTML}</ul>
                     `;
                 } else {
                     cardBody = `<p class="text-muted">Este grupo aún no ha sido evaluado.</p>`;
@@ -943,11 +1136,9 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
                 btn.addEventListener('click', e => {
                     const groupName = e.currentTarget.dataset.groupName;
                     groupToEvaluateSelect.value = groupName;
-                    // Switch to evaluate tab
                     const evaluateTab = new bootstrap.Tab(document.getElementById('evaluate-tab'));
                     evaluateTab.show();
-                    renderEvaluationRubric(groupName);
-                    updateEvaluationResults(groupName);
+                    renderEvaluationUI(groupName);
                 });
             });
 
@@ -959,56 +1150,37 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
             });
         };
         
-        const exportGroupToPDF = (groupName) => {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            
-            const group = appState.groups.find(g => g.name === groupName);
+        const generatePdfForGroup = (doc, groupName) => {
+             const group = appState.groups.find(g => g.name === groupName);
             const evaluation = appState.evaluations[groupName];
-            
-            if (!group || !evaluation) {
-                alert('No se puede exportar: faltan datos del grupo o de la evaluación.');
-                return;
-            }
+            if (!group || !evaluation) return false;
 
-            doc.setFontSize(18);
-            doc.text(rubricTitleInput.value || "Reporte de Evaluación", 14, 22);
+            doc.setFontSize(18).text(rubricTitleInput.value || "Reporte de Evaluación", 14, 22);
+            doc.setFontSize(11)
+               .text(`Curso: ${courseNameInput.value || 'N/A'}`, 14, 32)
+               .text(`Docente: ${teacherNameInput.value || 'N/A'}`, 14, 38)
+               .text(`Fecha: ${evaluationDateInput.value || 'N/A'}`, 120, 32)
+               .text(`Unidad: ${unitNameInput.value || 'N/A'}`, 120, 38);
+            doc.setLineWidth(0.5).line(14, 42, 196, 42);
 
-            doc.setFontSize(11);
-            doc.text(`Curso: ${courseNameInput.value || 'N/A'}`, 14, 32);
-            doc.text(`Docente: ${teacherNameInput.value || 'N/A'}`, 14, 38);
-            doc.text(`Fecha: ${evaluationDateInput.value || 'N/A'}`, 120, 32);
-            doc.text(`Unidad: ${unitNameInput.value || 'N/A'}`, 120, 38);
-
-            doc.setLineWidth(0.5);
-            doc.line(14, 42, 196, 42);
-
-            doc.setFontSize(14);
-            doc.text(`Grupo: ${group.name}`, 14, 52);
-            doc.setFontSize(11);
-            doc.text("Integrantes:", 14, 58);
+            doc.setFontSize(14).text(`Grupo: ${group.name}`, 14, 52);
+            doc.setFontSize(11).text("Integrantes:", 14, 58);
             let membersText = doc.splitTextToSize(group.members.join(', '), 170);
             doc.text(membersText, 20, 64);
             
-            let finalY = 64 + (membersText.length * 6) + 10;
+            let finalY = 64 + (membersText.length * 5) + 10;
             
-            // Results Summary
-            doc.setFontSize(12);
-            doc.setFont(undefined, 'bold');
-            doc.text("Resultados de la Evaluación", 14, finalY);
-            doc.setFont(undefined, 'normal');
-            doc.text(`Puntaje Total Obtenido: ${evaluation.totalScore}`, 20, finalY + 7);
-            doc.text(`Promedio Final: ${evaluation.average}`, 20, finalY + 14);
-            doc.text(`Nivel de Desempeño: ${evaluation.level}`, 20, finalY + 21);
+            doc.setFontSize(12).setFont(undefined, 'bold').text("Resultados del Trabajo Grupal", 14, finalY);
+            doc.setFont(undefined, 'normal')
+               .text(`Puntaje Total Obtenido: ${evaluation.groupTotalScore}`, 20, finalY + 7)
+               .text(`Promedio Final: ${evaluation.groupAverage.toFixed(2)}`, 20, finalY + 14)
+               .text(`Nivel de Desempeño: ${evaluation.groupLevel}`, 20, finalY + 21);
             finalY += 30;
 
-            // Rubric Table
-            const head = [['Criterio', 'Nivel Seleccionado', 'Descriptor', 'Puntaje Obtenido']];
-            const body = appState.rubric.criteria.map(criterion => {
-                const score = evaluation.scores[criterion.name];
-                let levelName = 'No evaluado';
-                let descriptor = 'N/A';
-
+            const rubricHead = [['Criterio', 'Nivel Seleccionado', 'Descriptor', 'Puntaje Obtenido']];
+            const rubricBody = appState.rubric.criteria.map(criterion => {
+                const score = evaluation.groupScores[criterion.name] || 0;
+                let levelName = 'No evaluado', descriptor = 'N/A';
                 for (let i = 0; i < criterion.cells.length; i++) {
                     if (criterion.cells[i].score === score) {
                         levelName = appState.rubric.levels[i].name;
@@ -1020,33 +1192,65 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
             });
 
             doc.autoTable({
-                head: head,
-                body: body,
-                startY: finalY,
-                headStyles: { fillColor: [22, 160, 133] },
-                didDrawPage: function(data) {
-                    // Footer
-                    let str = "Página " + doc.internal.getNumberOfPages();
-                    doc.setFontSize(10);
-                    doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
+                head: rubricHead, body: rubricBody, startY: finalY,
+                headStyles: { fillColor: [40, 167, 69] },
+                columnStyles: { 2: { cellWidth: 'auto' } },
+            });
+            finalY = doc.autoTable.previous.finalY + 10;
+
+            doc.setFontSize(12).setFont(undefined, 'bold').text("Resultados Individuales", 14, finalY);
+            finalY += 7;
+
+            const individualHead = [['Estudiante', 'Nota Final', 'Nivel', 'Comentarios']];
+            const individualBody = evaluation.memberEvaluations.map(m => [m.name, m.finalScore.toFixed(2), m.finalLevel, m.comments]);
+            doc.autoTable({
+                head: individualHead, body: individualBody, startY: finalY,
+                headStyles: { fillColor: [23, 162, 184] },
+                columnStyles: { 3: { cellWidth: 'auto' } },
+            });
+            
+            return true;
+        }
+
+        const exportGroupToPDF = (groupName) => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const success = generatePdfForGroup(doc, groupName);
+            if(success) doc.save(`Evaluacion_${groupName.replace(/ /g, '_')}.pdf`);
+        };
+
+        exportAllPdfBtn.addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            let firstPage = true;
+            
+            appState.groups.forEach(group => {
+                if (appState.evaluations[group.name]) {
+                    if (!firstPage) {
+                        doc.addPage();
+                    }
+                    generatePdfForGroup(doc, group.name);
+                    firstPage = false;
                 }
             });
 
-            doc.save(`Evaluacion_${group.name.replace(/ /g, '_')}.pdf`);
-        };
+            if (firstPage) {
+                alert("No hay evaluaciones completadas para exportar.");
+                return;
+            }
+
+            doc.save(`Reporte_Completo_Evaluaciones.pdf`);
+        });
         
         clearAllDataBtn.addEventListener('click', () => {
-            if (confirm('¡ADVERTENCIA! Esta acción borrará permanentemente TODOS los datos guardados (listas, rúbricas, grupos y evaluaciones) de este navegador. ¿Deseas continuar?')) {
+            if (confirm('¡ADVERTENCIA! Esta acción borrará permanentemente TODOS los datos guardados de este navegador. ¿Deseas continuar?')) {
                 localStorage.clear();
                 appState = { students: [], rubric: { criteria: [], levels: [] }, groups: [], evaluations: {}, generalInfo: {} };
                 initializeApp();
-                 // Limpiar inputs que no se limpian con initializeApp
-                const inputsToClear = [
-                    'student-list-paste', 'group-name',
-                    'course-name', 'teacher-name', 'rubric-title', 'unit-name'
-                ];
+                const inputsToClear = [ 'student-list-paste', 'group-name', 'course-name', 'teacher-name', 'rubric-title', 'unit-name' ];
                 inputsToClear.forEach(id => document.getElementById(id).value = '');
                 evaluationRubricArea.innerHTML = '';
+                individualEvaluationArea.innerHTML = '';
                 evaluationResultsDisplay.innerHTML = '';
             }
         });
@@ -1057,3 +1261,4 @@ Uso de Fuentes,"No se usan fuentes o son inadecuadas",1,"Usa fuentes relevantes 
     </script>
 </body>
 </html>
+
